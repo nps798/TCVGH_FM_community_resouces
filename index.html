@@ -158,70 +158,77 @@
         right: 0;
         bottom: 0;
         z-index: 1200;
-        padding: 0 10px max(10px, env(safe-area-inset-bottom));
+        padding: 0 10px max(8px, env(safe-area-inset-bottom));
         pointer-events: none;
       }
 
       .sheet {
-        min-height: 116px;
-        max-height: min(32vh, 290px);
+        min-height: 88px;
+        max-height: min(24svh, 220px);
         display: grid;
         grid-template-rows: auto auto 1fr;
         overflow: hidden;
         pointer-events: auto;
+        border-radius: 16px;
       }
 
       .grabber {
-        width: 38px;
-        height: 4px;
-        margin: 8px auto 4px;
+        width: 34px;
+        height: 3px;
+        margin: 7px auto 3px;
         border-radius: 999px;
-        background: rgba(25, 49, 38, 0.16);
+        background: rgba(25, 49, 38, 0.18);
       }
 
       .summary {
-        padding: 0 12px 8px;
+        padding: 0 12px 6px;
         border-bottom: 1px solid var(--line);
       }
 
       .summary-title {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 800;
-        line-height: 1.3;
+        line-height: 1.25;
       }
 
       .summary-subtitle {
         margin-top: 2px;
         color: var(--muted);
-        font-size: 11px;
-        line-height: 1.35;
+        font-size: 10px;
+        line-height: 1.25;
       }
 
       .results {
         overflow: auto;
         -webkit-overflow-scrolling: touch;
-        padding: 6px;
+        padding: 4px;
       }
 
       .result-item {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         width: 100%;
         text-align: left;
         background: transparent;
         border: 1px solid transparent;
-        border-radius: 14px;
-        padding: 4px;
+        border-radius: 12px;
+        padding: 2px;
+        transition: background 140ms ease, border-color 140ms ease;
       }
 
       .result-item + .result-item {
-        margin-top: 3px;
+        margin-top: 2px;
       }
 
       .result-item:active {
         background: rgba(31, 122, 92, 0.08);
+      }
+
+      .result-item:hover {
+        background: rgba(255, 255, 255, 0.54);
+        border-color: rgba(25, 49, 38, 0.08);
       }
 
       .result-main {
@@ -229,7 +236,7 @@
         display: block;
         min-width: 0;
         width: 100%;
-        padding: 6px;
+        padding: 5px 6px;
         text-align: left;
         background: transparent;
         border: 0;
@@ -241,21 +248,21 @@
       .result-title {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 7px;
         min-width: 0;
       }
 
       .dot {
-        width: 10px;
-        height: 10px;
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
         flex: 0 0 auto;
       }
 
       .name {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 800;
-        line-height: 1.3;
+        line-height: 1.25;
         color: var(--ink);
         overflow: hidden;
         text-overflow: ellipsis;
@@ -267,8 +274,8 @@
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        margin-top: 3px;
-        font-size: 11px;
+        margin-top: 2px;
+        font-size: 10px;
         color: var(--muted);
       }
 
@@ -287,14 +294,14 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 44px;
-        min-height: 32px;
-        padding: 7px 10px;
+        min-width: 42px;
+        min-height: 28px;
+        padding: 6px 9px;
         border-radius: 999px;
         background: #083f2b;
         border: 1px solid rgba(255, 255, 255, 0.82);
         color: #ffffff !important;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 800;
         line-height: 1;
         text-decoration: none;
@@ -527,7 +534,7 @@
           allCategories.length + ' 類 / ' + allPlaces.length + ' 點';
 
         if (!allPlaces.length) {
-          renderResults('沒有可顯示地點', '請確認 locations.json 至少有一個 place', []);
+          renderResults('沒有可顯示地點', '請確認 資源地點.json 至少有一個 place', []);
           return;
         }
 
@@ -562,7 +569,7 @@
 
         renderResults(
           '地點資料讀取失敗',
-          error && error.message ? error.message : '請確認 locations.json 已放在 index.html 旁邊',
+          error && error.message ? error.message : '請確認 資源地點.json 已放在 index.html 旁邊',
           []
         );
 
