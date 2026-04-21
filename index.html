@@ -387,7 +387,7 @@
             <div class="summary-subtitle" id="summarySubtitle">請稍候</div>
           </div>
           <div class="results" id="results">
-            <div class="loading">正在從試算表 API 載入所有分類地點...</div>
+            <div class="loading">正在載入地點資料...</div>
           </div>
         </div>
       </div>
@@ -403,7 +403,7 @@
       crossorigin=""
     ></script>
     <script>
-      var APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbwccZAmQAqBwKLercP5phfcVksmthWd_oau_LtAU4Xu5ofXtBy_zNSX9M4kUnzb6JkD6Q/exec';
+      var LOCATIONS_JSON_URL = '資源地點.json';
 
       var map;
       var markerCluster = null;
@@ -446,7 +446,7 @@
         });
 
         bindUiEvents();
-        loadPlacesFromApi();
+        loadPlacesFromJson();
       }
 
       function bindUiEvents() {
@@ -455,74 +455,39 @@
         document.getElementById('resetBtn').addEventListener('click', resetMapView);
       }
 
-      function loadPlacesFromApi() {
-        var endpoint = getConfiguredApiEndpoint();
+      function loadPlacesFromJson() {
+        var dataUrl = getConfiguredDataUrl();
 
-        if (!endpoint) {
-          showLoadError({
-            message: '尚未設定 Apps Script API 網址。請在 index.html 內填入 APPS_SCRIPT_API_URL，或用 ?api=你的網址 測試。'
-          });
-          return;
-        }
+        fetch(dataUrl, {
+          cache: 'no-cache'
+        })
+          .then(function(response) {
+            if (!response.ok) {
+              throw new Error('地點 JSON 讀取失敗：HTTP ' + response.status);
+            }
 
-        loadJsonp(endpoint, function(payload) {
-          if (!payload || payload.ok === false) {
-            showLoadError({
-              message: payload && payload.error ? payload.error : 'API 回傳格式不正確'
-            });
-            return;
-          }
+            return response.json();
+          })
+          .then(function(payload) {
+            if (!payload || payload.ok === false) {
+              throw new Error(payload && payload.error ? payload.error : 'JSON 格式不正確');
+            }
 
-          loadPlacesIntoMap(payload.data || payload);
-        }, showLoadError);
+            loadPlacesIntoMap(payload.data || payload);
+          })
+          .catch(showLoadError);
       }
 
-      function getConfiguredApiEndpoint() {
+      function getConfiguredDataUrl() {
         var query = new URLSearchParams(window.location.search);
-        var queryEndpoint = query.get('api');
+        var queryDataUrl = query.get('data');
 
-        if (queryEndpoint) {
-          window.localStorage.setItem('healthMapApiEndpoint', queryEndpoint);
-          return queryEndpoint;
+        if (queryDataUrl) {
+          window.localStorage.setItem('healthMapDataUrl', queryDataUrl);
+          return queryDataUrl;
         }
 
-        if (APPS_SCRIPT_API_URL && APPS_SCRIPT_API_URL.indexOf('PASTE_YOUR_') !== 0) {
-          return APPS_SCRIPT_API_URL;
-        }
-
-        return window.localStorage.getItem('healthMapApiEndpoint') || '';
-      }
-
-      function loadJsonp(endpoint, onSuccess, onFailure) {
-        var callbackName = '__healthMapCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-        var script = document.createElement('script');
-        var separator = endpoint.indexOf('?') >= 0 ? '&' : '?';
-        var timeoutId = window.setTimeout(function() {
-          cleanup();
-          onFailure({ message: 'API 讀取逾時，請確認 Apps Script 已部署為公開 Web App。' });
-        }, 16000);
-
-        function cleanup() {
-          window.clearTimeout(timeoutId);
-          delete window[callbackName];
-
-          if (script.parentNode) {
-            script.parentNode.removeChild(script);
-          }
-        }
-
-        window[callbackName] = function(payload) {
-          cleanup();
-          onSuccess(payload);
-        };
-
-        script.onerror = function() {
-          cleanup();
-          onFailure({ message: '無法載入 Apps Script API。' });
-        };
-
-        script.src = endpoint + separator + 'callback=' + encodeURIComponent(callbackName);
-        document.head.appendChild(script);
+        return window.localStorage.getItem('healthMapDataUrl') || LOCATIONS_JSON_URL;
       }
 
       function loadPlacesIntoMap(payload) {
@@ -564,11 +529,11 @@
       }
 
       function showLoadError(error) {
-        document.getElementById('titleMeta').textContent = 'API 未連線';
+        document.getElementById('titleMeta').textContent = '資料未連線';
 
         renderResults(
-          '試算表資料讀取失敗',
-          error && error.message ? error.message : '請確認 Apps Script API 網址與部署權限',
+          '地點資料讀取失敗',
+          error && error.message ? error.message : '請確認 locations.json 已放在 index.html 旁邊',
           []
         );
 
