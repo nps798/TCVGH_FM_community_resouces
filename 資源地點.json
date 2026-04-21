@@ -1,0 +1,100 @@
+{
+  "ok": true,
+  "generatedAt": "2026-04-21T14:09:31.523140+00:00",
+  "source": {
+    "type": "google_sheet_xlsx_export",
+    "spreadsheetId": "1WnrldlBCoQDYjmvLoZZh1Gp5UA4gDqDeBh9XABAe188"
+  },
+  "data": {
+    "categories": [
+      {
+        "name": "醫療機構-醫院",
+        "color": "#1f7a5c",
+        "count": 11
+      },
+      {
+        "name": "醫療機構-診所",
+        "color": "#d66a3a",
+        "count": 10
+      },
+      {
+        "name": "醫療機構- 心理諮商所",
+        "color": "#5b57d9",
+        "count": 10
+      },
+      {
+        "name": "社區資源-心理衛生中心",
+        "color": "#b84fa4",
+        "count": 6
+      },
+      {
+        "name": "社會資源-社區活動中心",
+        "color": "#c94d4d",
+        "count": 10
+      },
+      {
+        "name": "社區資源-社區據點",
+        "color": "#2b87c8",
+        "count": 10
+      },
+      {
+        "name": "健康生活-公園、步道、運動中心",
+        "color": "#d2a11f",
+        "count": 10
+      },
+      {
+        "name": "健康生活-休閒娛樂",
+        "color": "#4d8b52",
+        "count": 10
+      },
+      {
+        "name": "健康生活-圖書館",
+        "color": "#1f7a5c",
+        "count": 10
+      }
+    ],
+    "places": [
+      {
+        "id": "醫療機構-醫院::澄清綜合醫院中港分院::24.1831948493124::120.61677400017",
+        "category": "醫療機構-醫院",
+        "color": "#1f7a5c",
+        "name": "澄清綜合醫院中港分院",
+        "displayName": "澄清綜合醫院中港分院",
+        "navigationName": "澄清綜合醫院中港分院",
+        "lat": 24.1831948493124,
+        "lng": 120.61677400017,
+        "address": "台中市西屯區台灣大道四段966號",
+        "source": "從地址或名稱查API",
+        "googlePlaceId": "",
+        "googleMapsUrl": ""
+      },
+      {
+        "id": "醫療機構-醫院::台中榮民總醫院::24.1846146::120.6045116",
+        "category": "醫療機構-醫院",
+        "color": "#1f7a5c",
+        "name": "台中榮民總醫院",
+        "displayName": "台中榮民總醫院",
+        "navigationName": "台中榮民總醫院",
+        "lat": 24.1846146,
+        "lng": 120.6045116,
+        "address": "407219台灣臺中市西屯區台灣大道四段1650號",
+        "source": "從地址或名稱查API",
+        "googlePlaceId": "",
+        "googleMapsUrl": ""
+      },
+      {
+        "id": "醫療機構-醫院::澄清綜合醫院::24.1428054::120.6816457",
+        "category": "醫療機構-醫院",
+        "color": "#1f7a5c",
+        "name": "澄清綜合醫院",
+        "displayName": "澄清綜合醫院",
+        "navigationName": "澄清綜合醫院",
+        "lat": 24.1428054,
+        "lng": 120.6816457,
+        "address": "400台灣臺中市中區平等街139號",
+        "source": "從地址或名稱查API",
+        "googlePlaceId": "",
+        "googleMapsUrl": ""
+      },
+      {
+        "id": "醫療機構-醫院::國軍臺中總醫院中清分院附設民眾診療服務處 臺中市北區忠明路500號::24.162172::120.6726536",
