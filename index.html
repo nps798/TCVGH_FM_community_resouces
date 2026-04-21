@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>健康生活地圖</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    >
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+      crossorigin=""
+    >
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+      crossorigin=""
+    >
+    <style>
+      :root {
+        --bg: #eff3ef;
+        --panel: rgba(255, 255, 255, 0.94);
+        --ink: #193126;
+        --muted: #64786f;
+        --accent: #1f7a5c;
+        --line: rgba(25, 49, 38, 0.1);
+        --shadow: 0 18px 36px rgba(25, 49, 38, 0.14);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Avenir Next", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        overscroll-behavior: none;
+      }
+
+      #app {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #map {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+      }
+
+      .leaflet-container {
+        background: #dfe8e1;
+      }
+
+      .leaflet-tile {
+        filter: saturate(0.45) brightness(1.04) contrast(0.94);
+      }
+
+      .leaflet-control-attribution {
+        font-size: 10px;
+      }
+
+      .leaflet-top.leaflet-left {
+        top: calc(max(10px, env(safe-area-inset-top)) + 84px);
+      }
+
+      .card {
+        background: var(--panel);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .top-strip {
+        position: absolute;
+        top: max(10px, env(safe-area-inset-top));
+        left: 10px;
+        right: 10px;
+        z-index: 1200;
+        display: grid;
+        gap: 8px;
+        pointer-events: none;
+      }
+
+      .top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .title-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1;
+        pointer-events: auto;
+      }
+
+      .title-meta {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        pointer-events: auto;
+      }
+
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 14px;
+        padding: 10px 12px;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.94);
+        color: var(--ink);
+      }
+
+      .btn-accent {
+        background: #fff1d7;
+        color: #7d5818;
+      }
+
+      .bottom-sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1200;
+        padding: 0 10px max(10px, env(safe-area-inset-bottom));
+        pointer-events: none;
+      }
+
+      .sheet {
+        min-height: 116px;
+        max-height: min(32vh, 290px);
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        overflow: hidden;
+        pointer-events: auto;
+      }
+
+      .grabber {
+        width: 38px;
+        height: 4px;
+        margin: 8px auto 4px;
+        border-radius: 999px;
+        background: rgba(25, 49, 38, 0.16);
+      }
+
+      .summary {
+        padding: 0 12px 8px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .summary-title {
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.3;
+      }
+
+      .summary-subtitle {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .results {
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 6px;
+      }
+
+      .result-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 14px;
+        padding: 4px;
+      }
+
+      .result-item + .result-item {
+        margin-top: 3px;
+      }
+
+      .result-item:active {
+        background: rgba(31, 122, 92, 0.08);
+      }
+
+      .result-main {
+        appearance: none;
+        display: block;
+        min-width: 0;
+        width: 100%;
+        padding: 6px;
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-radius: 10px;
+        box-shadow: none;
+        cursor: pointer;
+      }
+
+      .result-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+      }
+
+      .name {
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1.3;
+        color: var(--ink);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 3px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .category {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .distance {
+        flex: 0 0 auto;
+        font-weight: 700;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 32px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .popup-nav {
+        margin-top: 9px;
+      }
+
+      .empty,
+      .loading {
+        padding: 10px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .place-pin {
+        position: relative;
+        width: 22px;
+        height: 22px;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        border: 2px solid #ffffff;
+        box-shadow: 0 6px 16px rgba(25, 49, 38, 0.26);
+      }
+
+      .place-pin::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 8px;
+        height: 8px;
+        margin-left: -4px;
+        margin-top: -4px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.96);
+      }
+
+      @media (min-width: 860px) {
+        .leaflet-top.leaflet-left {
+          top: calc(max(10px, env(safe-area-inset-top)) + 84px);
+        }
+
+        .top-strip {
+          right: auto;
+          width: 520px;
+        }
+
+        .bottom-sheet {
+          left: auto;
+          width: 380px;
+          top: 76px;
+          bottom: 10px;
+          padding: 0 10px 0 0;
+        }
+
+        .sheet {
+          max-height: none;
+          min-height: auto;
+          height: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="map"></div>
+
+      <div class="top-strip">
+        <div class="top-row">
+          <div class="card title-chip">
+            <span>健康生活地圖</span>
+            <span class="title-meta" id="titleMeta">讀取中...</span>
+          </div>
+        </div>
+        <div class="controls">
+          <button id="useLocationBtn" class="btn-primary" type="button">用目前位置</button>
+          <button id="useCenterBtn" class="btn-accent" type="button">以目前地圖為中心</button>
+          <button id="resetBtn" class="btn-secondary" type="button">回全部地圖</button>
+        </div>
+      </div>
+
+      <div class="bottom-sheet">
+        <div class="card sheet">
+          <div class="grabber"></div>
+          <div class="summary">
+            <div class="summary-title" id="summaryTitle">讀取地點中...</div>
+            <div class="summary-subtitle" id="summarySubtitle">請稍候</div>
+          </div>
+          <div class="results" id="results">
+            <div class="loading">正在從試算表 API 載入所有分類地點...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script
+      src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"
+      crossorigin=""
+    ></script>
+    <script>
+      var APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycby4U73r_SY9EK26VYdH_wWn2lq570oIwcUrWgxwFlNtQxRHjMyAAx2XiKY0N1KwEP5jFw/exec';
+
+      var map;
+      var markerCluster = null;
+      var markers = [];
+      var markerById = {};
+      var resultMarker = null;
+      var radiusCircle = null;
+      var allBounds = null;
+      var allPlaces = [];
+      var allCategories = [];
+
+      function initMap() {
+        allBounds = L.latLngBounds([]);
+
+        map = L.map('map', {
+          center: [24.186, 120.648],
+          zoom: 11,
+          zoomControl: true,
+          preferCanvas: true,
+        });
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>',
+        }).addTo(map);
+
+        if (L.markerClusterGroup) {
+          markerCluster = L.markerClusterGroup({
+            chunkedLoading: true,
+            showCoverageOnHover: false,
+            spiderfyOnMaxZoom: true,
+            removeOutsideVisibleBounds: true,
+          });
+          map.addLayer(markerCluster);
+        }
+
+        map.on('click', function(event) {
+          searchNearby(event.latlng.lat, event.latlng.lng, '地圖選取位置');
+        });
+
+        bindUiEvents();
+        loadPlacesFromApi();
+      }
+
+      function bindUiEvents() {
+        document.getElementById('useLocationBtn').addEventListener('click', useCurrentLocation);
+        document.getElementById('useCenterBtn').addEventListener('click', useCurrentCenter);
+        document.getElementById('resetBtn').addEventListener('click', resetMapView);
+      }
+
+      function loadPlacesFromApi() {
+        var endpoint = getConfiguredApiEndpoint();
+
+        if (!endpoint) {
+          showLoadError({
+            message: '尚未設定 Apps Script API 網址。請在 index.html 內填入 APPS_SCRIPT_API_URL，或用 ?api=你的網址 測試。'
+          });
+          return;
+        }
+
+        loadJsonp(endpoint, function(payload) {
+          if (!payload || payload.ok === false) {
+            showLoadError({
+              message: payload && payload.error ? payload.error : 'API 回傳格式不正確'
+            });
+            return;
+          }
+
+          loadPlacesIntoMap(payload.data || payload);
+        }, showLoadError);
+      }
+
+      function getConfiguredApiEndpoint() {
+        var query = new URLSearchParams(window.location.search);
+        var queryEndpoint = query.get('api');
+
+        if (queryEndpoint) {
+          window.localStorage.setItem('healthMapApiEndpoint', queryEndpoint);
+          return queryEndpoint;
+        }
+
+        if (APPS_SCRIPT_API_URL && APPS_SCRIPT_API_URL.indexOf('PASTE_YOUR_') !== 0) {
+          return APPS_SCRIPT_API_URL;
+        }
+
+        return window.localStorage.getItem('healthMapApiEndpoint') || '';
+      }
+
+      function loadJsonp(endpoint, onSuccess, onFailure) {
+        var callbackName = '__healthMapCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+        var script = document.createElement('script');
+        var separator = endpoint.indexOf('?') >= 0 ? '&' : '?';
+        var timeoutId = window.setTimeout(function() {
+          cleanup();
+          onFailure({ message: 'API 讀取逾時，請確認 Apps Script 已部署為公開 Web App。' });
+        }, 16000);
+
+        function cleanup() {
+          window.clearTimeout(timeoutId);
+          delete window[callbackName];
+
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+        }
+
+        window[callbackName] = function(payload) {
+          cleanup();
+          onSuccess(payload);
+        };
+
+        script.onerror = function() {
+          cleanup();
+          onFailure({ message: '無法載入 Apps Script API。' });
+        };
+
+        script.src = endpoint + separator + 'callback=' + encodeURIComponent(callbackName);
+        document.head.appendChild(script);
+      }
+
+      function loadPlacesIntoMap(payload) {
+        allPlaces = payload && payload.places ? payload.places : [];
+        allCategories = payload && payload.categories ? payload.categories : [];
+
+        document.getElementById('titleMeta').textContent =
+          allCategories.length + ' 類 / ' + allPlaces.length + ' 點';
+
+        if (!allPlaces.length) {
+          renderResults('沒有可顯示地點', '請確認試算表各工作表有資料列', []);
+          return;
+        }
+
+        allPlaces.forEach(function(place) {
+          var marker = L.marker([place.lat, place.lng], {
+            title: getPlaceDisplayName(place),
+            icon: buildPinIcon(place.color),
+          });
+
+          marker.__place = place;
+          markerById[place.id] = marker;
+          markers.push(marker);
+          allBounds.extend([place.lat, place.lng]);
+
+          marker.on('click', function() {
+            focusPlace(marker, place, false);
+          });
+
+          if (markerCluster) {
+            markerCluster.addLayer(marker);
+          } else {
+            marker.addTo(map);
+          }
+        });
+
+        map.fitBounds(allBounds, { padding: [46, 46] });
+        renderInitialList();
+      }
+
+      function showLoadError(error) {
+        document.getElementById('titleMeta').textContent = 'API 未連線';
+
+        renderResults(
+          '試算表資料讀取失敗',
+          error && error.message ? error.message : '請確認 Apps Script API 網址與部署權限',
+          []
+        );
+
+        if (error && error.message) {
+          console.error(error.message);
+        }
+      }
+
+      function renderInitialList() {
+        var previewItems = allPlaces.slice(0, 120).map(function(place) {
+          return {
+            place: place,
+            distanceKm: null
+          };
+        });
+
+        renderResults(
+          '全部地點',
+          '已載入 ' + allPlaces.length + ' 個地點，點地圖任一位置搜尋 5 公里',
+          previewItems
+        );
+      }
+
+      function useCurrentLocation() {
+        if (!navigator.geolocation) {
+          alert('這台裝置不支援定位。');
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          function(position) {
+            searchNearby(position.coords.latitude, position.coords.longitude, '目前位置');
+          },
+          function() {
+            alert('無法取得目前位置，請確認 iPhone 已允許定位權限。');
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      }
+
+      function useCurrentCenter() {
+        var center = map.getCenter();
+        if (!center) {
+          return;
+        }
+
+        searchNearby(center.lat, center.lng, '目前地圖中心');
+      }
+
+      function resetMapView() {
+        clearSearchOverlay();
+        if (allPlaces.length) {
+          map.fitBounds(allBounds, { padding: [46, 46] });
+        }
+        renderInitialList();
+      }
+
+      function clearSearchOverlay() {
+        if (resultMarker) {
+          map.removeLayer(resultMarker);
+          resultMarker = null;
+        }
+
+        if (radiusCircle) {
+          map.removeLayer(radiusCircle);
+          radiusCircle = null;
+        }
+      }
+
+      function searchNearby(lat, lng, label) {
+        var nearby = [];
+
+        allPlaces.forEach(function(place) {
+          var distanceKm = haversineKm(lat, lng, place.lat, place.lng);
+          if (distanceKm <= 5) {
+            nearby.push({
+              place: place,
+              distanceKm: distanceKm
+            });
+          }
+        });
+
+        nearby.sort(function(a, b) {
+          return a.distanceKm - b.distanceKm;
+        });
+
+        showSearchCenter({ lat: lat, lng: lng }, label);
+
+        renderResults(
+          label,
+          nearby.length
+            ? '找到 ' + nearby.length + ' 個 5 公里內地點'
+            : '5 公里內沒有地點',
+          nearby
+        );
+      }
+
+      function showSearchCenter(center, label) {
+        clearSearchOverlay();
+
+        resultMarker = L.circleMarker([center.lat, center.lng], {
+          radius: 8,
+          color: '#ffffff',
+          weight: 3,
+          fillColor: '#0f5fff',
+          fillOpacity: 1,
+        }).addTo(map);
+
+        resultMarker.bindTooltip(label, {
+          permanent: false,
+          direction: 'top',
+          offset: [0, -8],
+        });
+
+        radiusCircle = L.circle([center.lat, center.lng], {
+          radius: 5000,
+          color: '#0f5fff',
+          weight: 2,
+          opacity: 0.65,
+          fillColor: '#0f5fff',
+          fillOpacity: 0.08,
+        }).addTo(map);
+
+        map.fitBounds(radiusCircle.getBounds(), { padding: [42, 42] });
+      }
+
+      function renderResults(title, subtitle, items) {
+        document.getElementById('summaryTitle').textContent = title;
+        document.getElementById('summarySubtitle').textContent = subtitle;
+
+        var container = document.getElementById('results');
+
+        if (!items.length) {
+          container.innerHTML =
+            '<div class="empty">目前沒有可顯示結果。你可以點其他位置或回到全部地圖。</div>';
+          window.__lastResults = [];
+          return;
+        }
+
+        var html = '';
+        items.forEach(function(item, index) {
+          var place = item.place;
+          var placeName = getPlaceDisplayName(place);
+          var distanceText = item.distanceKm == null
+            ? place.address || '未計算距離'
+            : item.distanceKm.toFixed(2) + ' km';
+          var navigationUrl = buildNavigationUrl(place);
+
+          html +=
+            '<div class="result-item">' +
+              '<button class="result-main" type="button" onclick="focusPlaceByIndex(' + index + ')">' +
+                '<div class="result-title">' +
+                  '<span class="dot" style="background:' + escapeHtml(place.color) + ';"></span>' +
+                  '<span class="name">' + escapeHtml(placeName) + '</span>' +
+                '</div>' +
+                '<div class="meta-row">' +
+                  '<span class="category">' + escapeHtml(place.category) + '</span>' +
+                  '<span class="distance">' + escapeHtml(distanceText) + '</span>' +
+                '</div>' +
+              '</button>' +
+              '<a class="nav-link" href="' + escapeHtml(navigationUrl) + '" target="_blank" rel="noopener noreferrer" aria-label="導航到' + escapeHtml(placeName) + '">導航</a>' +
+            '</div>';
+        });
+
+        container.innerHTML = html;
+        window.__lastResults = items;
+      }
+
+      function focusPlaceByIndex(index) {
+        if (!window.__lastResults || !window.__lastResults[index]) {
+          return;
+        }
+
+        var place = window.__lastResults[index].place;
+        var marker = markerById[place.id];
+
+        if (marker) {
+          focusPlace(marker, place, true);
+        }
+      }
+
+      function focusPlace(marker, place, shouldPan) {
+        var placeName = getPlaceDisplayName(place);
+        var navigationUrl = buildNavigationUrl(place);
+        var html =
+          '<div style="min-width:200px;padding:2px 2px 0;">' +
+            '<div style="font-weight:800;font-size:14px;line-height:1.35;">' + escapeHtml(placeName) + '</div>' +
+            '<div style="margin-top:4px;font-size:12px;color:#5f746b;">' + escapeHtml(place.category) + '</div>' +
+            (place.address
+              ? '<div style="margin-top:6px;font-size:12px;line-height:1.45;color:#193126;">' + escapeHtml(place.address) + '</div>'
+              : '') +
+            '<div style="margin-top:6px;font-size:11px;color:#6a7f76;">' +
+              Number(place.lat).toFixed(6) + ', ' + Number(place.lng).toFixed(6) +
+            '</div>' +
+            '<div class="popup-nav">' +
+              '<a class="nav-link" href="' + escapeHtml(navigationUrl) + '" target="_blank" rel="noopener noreferrer" aria-label="導航到' + escapeHtml(placeName) + '">導航</a>' +
+            '</div>' +
+          '</div>';
+
+        function openPopup() {
+          if (shouldPan) {
+            map.setView(marker.getLatLng(), Math.max(map.getZoom(), 15), {
+              animate: true,
+            });
+          }
+
+          marker.bindPopup(html, {
+            maxWidth: 240,
+            closeButton: true,
+          }).openPopup();
+        }
+
+        if (shouldPan && markerCluster && typeof markerCluster.zoomToShowLayer === 'function') {
+          markerCluster.zoomToShowLayer(marker, openPopup);
+        } else {
+          openPopup();
+        }
+      }
+
+      function buildPinIcon(color) {
+        return L.divIcon({
+          className: '',
+          html: '<div class="place-pin" style="background:' + escapeHtml(color) + ';"></div>',
+          iconSize: [22, 22],
+          iconAnchor: [11, 22],
+          popupAnchor: [0, -20],
+        });
+      }
+
+      function buildNavigationUrl(place) {
+        if (place.googleMapsUrl) {
+          return place.googleMapsUrl;
+        }
+
+        var destination = buildNavigationDestination(place);
+        var url = 'https://www.google.com/maps/dir/?api=1&destination=' +
+          encodeURIComponent(destination);
+
+        if (place.googlePlaceId) {
+          url += '&destination_place_id=' + encodeURIComponent(place.googlePlaceId);
+        }
+
+        return url;
+      }
+
+      function buildNavigationDestination(place) {
+        var name = place && place.navigationName
+          ? String(place.navigationName).trim()
+          : getPlaceDisplayName(place);
+        var address = place && place.address ? String(place.address).trim() : '';
+
+        if (name && address) {
+          return name + ' ' + address;
+        }
+
+        if (name) {
+          return name;
+        }
+
+        return Number(place.lat).toFixed(6) + ',' + Number(place.lng).toFixed(6);
+      }
+
+      function getPlaceDisplayName(place) {
+        return place && place.displayName
+          ? String(place.displayName).trim()
+          : String(place && place.name ? place.name : '').trim();
+      }
+
+      function haversineKm(lat1, lng1, lat2, lng2) {
+        var R = 6371;
+        var dLat = toRad(lat2 - lat1);
+        var dLng = toRad(lng2 - lng1);
+        var a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      function toRad(value) {
+        return value * Math.PI / 180;
+      }
+
+      function escapeHtml(text) {
+        return String(text == null ? '' : text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      window.addEventListener('load', initMap);
+    </script>
+  </body>
+</html>
