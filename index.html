@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>ＮＥＷ健康生活地圖</title>
+    <title>健康生活地圖</title>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -291,13 +291,21 @@
         min-height: 32px;
         padding: 7px 10px;
         border-radius: 999px;
-        background: var(--accent);
-        color: #ffffff;
+        background: #083f2b;
+        border: 1px solid rgba(255, 255, 255, 0.82);
+        color: #ffffff !important;
         font-size: 12px;
         font-weight: 800;
         line-height: 1;
         text-decoration: none;
         white-space: nowrap;
+        box-shadow: 0 8px 18px rgba(8, 63, 43, 0.24);
+      }
+
+      .nav-link:active,
+      .nav-link:hover {
+        background: #0f6545;
+        color: #ffffff !important;
       }
 
       .popup-nav {
@@ -403,7 +411,27 @@
       crossorigin=""
     ></script>
     <script>
-      var LOCATIONS_JSON_URL = '資源地點.json';
+      var LOCATIONS_JSON_URL = 'locations.json';
+      var CATEGORY_COLORS = [
+        '#1f7a5c',
+        '#d66a3a',
+        '#5b57d9',
+        '#b84fa4',
+        '#c94d4d',
+        '#2b87c8',
+        '#d2a11f',
+        '#4d8b52',
+        '#8a5a44',
+        '#007f7f',
+        '#a65f00',
+        '#6a5acd',
+        '#3d7f2d',
+        '#bf5f82',
+        '#5f6f7f',
+        '#9a6f1f',
+        '#22708f',
+        '#6d7c2d',
+      ];
 
       var map;
       var markerCluster = null;
@@ -491,14 +519,15 @@
       }
 
       function loadPlacesIntoMap(payload) {
-        allPlaces = payload && payload.places ? payload.places : [];
-        allCategories = payload && payload.categories ? payload.categories : [];
+        var normalized = normalizePlacesPayload(payload);
+        allPlaces = normalized.places;
+        allCategories = normalized.categories;
 
         document.getElementById('titleMeta').textContent =
           allCategories.length + ' 類 / ' + allPlaces.length + ' 點';
 
         if (!allPlaces.length) {
-          renderResults('沒有可顯示地點', '請確認試算表各工作表有資料列', []);
+          renderResults('沒有可顯示地點', '請確認 locations.json 至少有一個 place', []);
           return;
         }
 
@@ -540,6 +569,78 @@
         if (error && error.message) {
           console.error(error.message);
         }
+      }
+
+      function normalizePlacesPayload(payload) {
+        var rawPlaces = [];
+
+        if (payload && payload.places && Array.isArray(payload.places)) {
+          rawPlaces = payload.places;
+        } else if (payload && payload.data && payload.data.places && Array.isArray(payload.data.places)) {
+          rawPlaces = payload.data.places;
+        } else if (payload && typeof payload === 'object') {
+          Object.keys(payload).forEach(function(key) {
+            if (key.charAt(0) === '_') {
+              return;
+            }
+
+            if (payload[key] && typeof payload[key] === 'object') {
+              rawPlaces.push(payload[key]);
+            }
+          });
+        }
+
+        var categoryColors = {};
+        var categories = [];
+        var places = [];
+
+        rawPlaces.forEach(function(rawPlace, index) {
+          var category = cleanText(rawPlace.category) || '未分類';
+          var name = cleanText(rawPlace.name);
+          var address = cleanText(rawPlace.address);
+          var lat = Number(rawPlace.lat);
+          var lng = Number(
+            rawPlace.lon != null
+              ? rawPlace.lon
+              : rawPlace.lng != null
+                ? rawPlace.lng
+                : rawPlace.longitude
+          );
+
+          if (!name || Number.isNaN(lat) || Number.isNaN(lng)) {
+            return;
+          }
+
+          if (!categoryColors[category]) {
+            categoryColors[category] = CATEGORY_COLORS[categories.length % CATEGORY_COLORS.length];
+            categories.push({
+              name: category,
+              color: categoryColors[category],
+              count: 0,
+            });
+          }
+
+          var categoryEntry = categories.find(function(item) {
+            return item.name === category;
+          });
+
+          categoryEntry.count += 1;
+
+          places.push({
+            id: category + '::' + name + '::' + lat + '::' + lng + '::' + index,
+            category: category,
+            color: categoryColors[category],
+            name: name,
+            lat: lat,
+            lng: lng,
+            address: address,
+          });
+        });
+
+        return {
+          places: places,
+          categories: categories,
+        };
       }
 
       function renderInitialList() {
@@ -768,25 +869,13 @@
       }
 
       function buildNavigationUrl(place) {
-        if (place.googleMapsUrl) {
-          return place.googleMapsUrl;
-        }
-
         var destination = buildNavigationDestination(place);
-        var url = 'https://www.google.com/maps/dir/?api=1&destination=' +
+        return 'https://www.google.com/maps/dir/?api=1&destination=' +
           encodeURIComponent(destination);
-
-        if (place.googlePlaceId) {
-          url += '&destination_place_id=' + encodeURIComponent(place.googlePlaceId);
-        }
-
-        return url;
       }
 
       function buildNavigationDestination(place) {
-        var name = place && place.navigationName
-          ? String(place.navigationName).trim()
-          : getPlaceDisplayName(place);
+        var name = getPlaceDisplayName(place);
         var address = place && place.address ? String(place.address).trim() : '';
 
         if (name && address) {
@@ -801,9 +890,11 @@
       }
 
       function getPlaceDisplayName(place) {
-        return place && place.displayName
-          ? String(place.displayName).trim()
-          : String(place && place.name ? place.name : '').trim();
+        return String(place && place.name ? place.name : '').trim();
+      }
+
+      function cleanText(value) {
+        return String(value == null ? '' : value).trim();
       }
 
       function haversineKm(lat1, lng1, lat2, lng2) {
