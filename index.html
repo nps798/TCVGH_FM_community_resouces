@@ -63,11 +63,11 @@
       }
 
       .leaflet-container {
-        background: #dbeafe;
+        background: #e5e3df;
       }
 
       .leaflet-tile {
-        filter: saturate(0.52) brightness(1.03) contrast(0.92) hue-rotate(184deg);
+        filter: none;
       }
 
       .leaflet-control-attribution {
@@ -372,7 +372,7 @@
       .list-toggle {
         position: absolute;
         right: 12px;
-        bottom: max(12px, env(safe-area-inset-bottom));
+        bottom: calc(max(12px, env(safe-area-inset-bottom)) + 24px);
         z-index: 1500;
         display: inline-flex;
         align-items: center;
