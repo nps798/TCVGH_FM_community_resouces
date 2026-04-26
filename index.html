@@ -626,6 +626,27 @@
       font-weight: 850;
     }
 
+    .loading-debug,
+    .section-debug {
+      margin-top: 4px;
+      padding: 10px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      color: rgba(255, 255, 255, 0.96);
+      font-size: clamp(15px, 3.5vw, 20px);
+      font-weight: 850;
+      line-height: 1.4;
+      text-align: center;
+      word-break: break-word;
+    }
+
+    .loading-debug.error,
+    .section-debug.error {
+      background: rgba(127, 29, 29, 0.26);
+      border-color: rgba(254, 202, 202, 0.35);
+    }
+
     .section-select-content {
       width: min(920px, 100%);
       min-height: 100%;
@@ -849,11 +870,12 @@
         </div>
         <div class="loading-title">中榮社區醫學科資源地圖</div>
         <div class="loading-subtitle">正在載入向量地圖與資源地點</div>
+        <div id="loadingGeoDebug" class="loading-debug">定位狀態：正在檢查…</div>
       </div>
       <div id="sectionSelectContent" class="section-select-content hidden">
         <div class="section-select-title">
           <h1>選擇 ICOPE 評估大項</h1>
-
+          <div id="sectionGeoDebug" class="section-debug">定位狀態：正在檢查…</div>
         </div>
         <div id="sectionGrid" class="section-grid"></div>
       </div>
@@ -940,6 +962,9 @@
     let markerById = {};
     let currentPopup = null;
     let currentLocationMarker = null;
+    let userInitialCenter = HOME_CENTER.slice();
+    let hasUserLocation = false;
+    let userLocationResolved = false;
     let autoCenterTimer = null;
     let autoCenterReleaseTimer = null;
     let autoCenterBound = false;
@@ -956,10 +981,13 @@
       });
 
       bindUiEvents();
+      requestInitialUserLocation();
 
       map.on('load', async function () {
         try {
           reduceBasemapClutter();
+          syncCurrentLocationMarker();
+          applyInitialUserViewport();
           await loadPlacesFromJson();
         } catch (error) {
           showLoadError(error);
@@ -1009,6 +1037,104 @@
       } catch (error) {
         console.warn('Cannot set visibility for', layerId, error);
       }
+    }
+
+    function requestInitialUserLocation() {
+      updateGeoDebug('定位狀態：正在取得目前位置…', false);
+
+      if (!navigator.geolocation) {
+        updateGeoDebug('定位狀態：此裝置或瀏覽器不支援定位。', true);
+        userLocationResolved = true;
+        return;
+      }
+
+      if (!window.isSecureContext && window.location.protocol !== 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        updateGeoDebug('定位狀態：需要使用 HTTPS 或 localhost 才能取得目前位置。', true);
+        userLocationResolved = true;
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          const lat = Number(position.coords.latitude);
+          const lng = Number(position.coords.longitude);
+          userInitialCenter = [lng, lat];
+          hasUserLocation = true;
+          userLocationResolved = true;
+          updateGeoDebug(
+            '定位狀態：已取得目前位置 ' +
+            lat.toFixed(5) + ', ' + lng.toFixed(5),
+            false
+          );
+          applyInitialUserViewport();
+          syncCurrentLocationMarker();
+        },
+        function (error) {
+          updateGeoDebug('定位狀態：' + getGeolocationErrorMessage(error), true);
+          userLocationResolved = true;
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    }
+
+    function updateGeoDebug(message, isError) {
+      ['loadingGeoDebug', 'sectionGeoDebug'].forEach(function (id) {
+        const node = document.getElementById(id);
+        if (!node) {
+          return;
+        }
+        node.textContent = message;
+        node.classList.toggle('error', Boolean(isError));
+      });
+    }
+
+    function getGeolocationErrorMessage(error) {
+      if (!error) {
+        return '無法取得目前位置。';
+      }
+
+      if (error.code === 1) {
+        return '未允許定位權限。';
+      }
+      if (error.code === 2) {
+        return '目前無法判定位置。';
+      }
+      if (error.code === 3) {
+        return '定位逾時，請稍後再試。';
+      }
+      return error.message || '無法取得目前位置。';
+    }
+
+    function applyInitialUserViewport() {
+      const overlay = document.getElementById('loadingOverlay');
+      if (!map || !hasUserLocation || selectedSectionName || (overlay && overlay.classList.contains('hidden'))) {
+        return;
+      }
+
+      map.jumpTo({
+        center: userInitialCenter,
+        zoom: Math.max(map.getZoom(), 13),
+      });
+    }
+
+    function syncCurrentLocationMarker() {
+      if (!map || !hasUserLocation) {
+        return;
+      }
+
+      if (!currentLocationMarker) {
+        const element = document.createElement('div');
+        element.className = 'current-location-marker';
+        currentLocationMarker = new maplibregl.Marker({ element: element, anchor: 'center' });
+      }
+
+      currentLocationMarker
+        .setLngLat(userInitialCenter)
+        .addTo(map);
     }
 
     async function loadPlacesFromJson() {
