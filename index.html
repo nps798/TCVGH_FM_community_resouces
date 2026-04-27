@@ -129,7 +129,7 @@
       z-index: 80;
       height: 33svh;
       min-height: 230px;
-      padding: 0 10px max(10px, env(safe-area-inset-bottom));
+      padding: 0 10px 0 10px;
       pointer-events: auto;
       transition: opacity 220ms ease, transform 220ms ease, visibility 220ms ease;
     }
@@ -889,7 +889,8 @@
     const ICOPE_SECTION_JSON_URL = 'ICOPE評估大項.json';
     const SEARCH_RADIUS_KM = 2;
     const DOCKED_SEARCH_Y_RATIO = 1 / 3;
-    const SEARCH_CIRCLE_WIDTH_PADDING = 18;
+    const DOCKED_SEARCH_CENTER_PADDING_TOP = 102;
+    const SEARCH_CIRCLE_WIDTH_PADDING = 100;
     const HOME_CENTER = [120.648, 24.186];
     const HOME_ZOOM = 11;
     const SECTION_META = {
@@ -986,6 +987,7 @@
       map.on('load', async function () {
         try {
           reduceBasemapClutter();
+
           syncCurrentLocationMarker();
           applyInitialUserViewport();
           await loadPlacesFromJson();
@@ -994,6 +996,8 @@
         }
       });
     }
+
+
 
     function bindUiEvents() {
       document.getElementById('homeBtn').addEventListener('click', returnHome);
@@ -1114,9 +1118,10 @@
       if (!map || !hasUserLocation || selectedSectionName || (overlay && overlay.classList.contains('hidden'))) {
         return;
       }
-
+      console.log("map center: ", [userInitialCenter[0], userInitialCenter[1]]);
       map.jumpTo({
-        center: userInitialCenter,
+        //center: userInitialCenter, // minuse 0.001 from latitude
+        center: [userInitialCenter[0], userInitialCenter[1]],
         zoom: Math.max(map.getZoom(), 13),
       });
     }
@@ -1258,6 +1263,7 @@
     }
 
     function selectIcopeSection(sectionName) {
+      console.log("selectIcopeSection: ", sectionName);
       if (!icopeSections[sectionName]) {
         return;
       }
@@ -1274,11 +1280,18 @@
       updateSelectedSectionChip();
       hideLoadingOverlay(0);
       setListMode('docked');
-      const center = getVisibleSearchCenter();
-      drawSearchOverlay(center.lat, center.lng, false);
-      zoomSearchCircleToWindowWidth(center, function () {
-        searchFromMapCenter(selectedSectionName);
-      });
+      const searchCenter = hasUserLocation
+        ? { lat: userInitialCenter[1], lng: userInitialCenter[0] }
+        : getVisibleSearchCenter();
+      const cameraCenter = hasUserLocation
+        ? getDockedCameraCenterForLocation(searchCenter.lat, searchCenter.lng)
+        : searchCenter;
+
+      drawSearchOverlay(searchCenter.lat, searchCenter.lng, false);
+
+      zoomSearchCircleToWindowWidth(cameraCenter, function () {
+        searchNearby(searchCenter.lat, searchCenter.lng, selectedSectionName, false);
+      }, searchCenter.lat);
     }
 
     function updateSelectedSectionChip() {
@@ -1570,16 +1583,21 @@
     }
 
     function bindMapAutoCenterSearch() {
-      if (autoCenterBound) {
-        return;
-      }
+      // Do nothing.
 
-      autoCenterBound = true;
-      map.on('moveend', function () {
-        if (!suppressAutoCenter) {
-          scheduleAutoCenterSearch();
-        }
-      });
+      // The search circle should stay fixed after the user selects an ICOPE section.
+
+
+      // if (autoCenterBound) {
+      //   return;
+      // }
+
+      // autoCenterBound = true;
+      // map.on('moveend', function () {
+      //   if (!suppressAutoCenter) {
+      //     scheduleAutoCenterSearch();
+      //   }
+      // });
     }
 
     function scheduleAutoCenterSearch() {
@@ -1598,7 +1616,7 @@
       searchNearby(center.lat, center.lng, label || '目前地圖中心', false);
     }
 
-    function zoomSearchCircleToWindowWidth(center, callback) {
+    function zoomSearchCircleToWindowWidth(center, callback, circleLat) {
       withAutoCenterSuppressed(function () {
         runAfterNextMoveEnd(function () {
           if (callback) {
@@ -1607,7 +1625,7 @@
         });
         map.easeTo({
           center: [center.lng, center.lat],
-          zoom: getZoomForSearchCircleWidth(center.lat),
+          zoom: getZoomForSearchCircleWidth(circleLat == null ? center.lat : circleLat),
           duration: 420,
         });
       }, 720);
@@ -1619,6 +1637,7 @@
       const latitudeScale = Math.max(0.2, Math.cos(toRad(lat)));
       const circleLngSpan = (SEARCH_RADIUS_KM * 2) / (111.32 * latitudeScale);
       const zoom = Math.log2((usableWidth * 360) / (512 * circleLngSpan));
+      console.log("getZoomForSearchCircleWidth: ", zoom);
       return Math.max(10, Math.min(16, zoom));
     }
 
@@ -1629,6 +1648,22 @@
       const x = canvas.clientWidth / 2;
       const y = isListCollapsed ? canvas.clientHeight / 2 : canvas.clientHeight * DOCKED_SEARCH_Y_RATIO;
       return map.unproject([x, y]);
+    }
+
+    function getDockedCameraCenterForLocation(lat, lng) {
+      const canvas = map.getCanvas();
+      const x = canvas.clientWidth / 2;
+      const y = Math.max(
+        DOCKED_SEARCH_CENTER_PADDING_TOP,
+        canvas.clientHeight * DOCKED_SEARCH_Y_RATIO
+      );
+      const visibleSearchPoint = map.unproject([x, y]);
+      const mapCenter = map.getCenter();
+
+      return {
+        lat: lat + (mapCenter.lat - visibleSearchPoint.lat),
+        lng: lng + (mapCenter.lng - visibleSearchPoint.lng),
+      };
     }
 
     function withAutoCenterSuppressed(action, releaseDelay) {
@@ -1673,7 +1708,10 @@
     }
 
     function drawSearchOverlay(lat, lng, fitCircle) {
+
       const circleGeoJson = makeCircle([lng, lat], SEARCH_RADIUS_KM, 72);
+      // is this make Circle placing a circle center or border at lng, lat 
+      console.log("drawSearchOverlay: ", [lng, lat]);
 
       if (!map.getSource('search-circle')) {
         map.addSource('search-circle', { type: 'geojson', data: circleGeoJson });
