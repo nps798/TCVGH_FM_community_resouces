@@ -75,14 +75,21 @@
     .home-button {
       flex: 0 0 auto;
       pointer-events: auto;
-      min-height: 54px;
-      padding: 0 20px;
+      height: 54px;
+      width: 54px;
+      padding: 0;
       border-radius: 999px;
       background: var(--blue-dark);
       color: #ffffff;
-      font-size: clamp(18px, 4vw, 22px);
-      font-weight: 950;
       box-shadow: 0 12px 24px rgba(7, 63, 158, 0.28);
+      display: grid;
+      place-items: center;
+    }
+
+    .home-button .home-svg {
+      width: 24px;
+      height: 24px;
+      stroke-width: 2.2;
     }
 
     .radius-button {
@@ -116,12 +123,12 @@
 
     .radius-fab {
       position: absolute;
-      top: max(12px, env(safe-area-inset-top));
+   
       right: 12px;
       z-index: 70;
       pointer-events: auto;
+      height: 54px;
       min-width: 54px;
-      min-height: 54px;
       padding: 0 16px;
       border-radius: 999px;
       background: var(--blue-dark);
@@ -132,6 +139,7 @@
       display: none;
       align-items: center;
       gap: 6px;
+      justify-content: center;
       white-space: nowrap;
     }
 
@@ -152,7 +160,7 @@
       gap: 8px;
       min-width: 0;
       max-width: calc(100vw - 128px);
-      min-height: 54px;
+      height: 54px;
       padding: 0 16px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.96);
@@ -432,7 +440,7 @@
     .map-credit {
       position: absolute;
       right: 8px;
-      bottom: calc(33svh + 56px);
+      bottom: calc(33svh + 6px);
       z-index: 60;
       max-width: 230px;
       padding: 5px 7px;
@@ -966,7 +974,20 @@
     <div id="map"></div>
 
     <header class="app-header">
-      <button id="homeBtn" class="home-button" type="button">回首頁</button>
+      <button id="homeBtn" class="home-button" type="button" aria-label="回首頁">
+        <svg class="home-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      </button>
+      <button id="radiusBtn" class="radius-fab" type="button" aria-label="搜尋半徑">
+        <svg class="radius-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <line x1="12" y1="2" x2="12" y2="5"></line>
+        </svg>
+        <span id="radiusLabel">2 公里</span>
+      </button>
       <div id="selectedSectionChip" class="section-chip" aria-live="polite"></div>
     </header>
 
@@ -1128,6 +1149,7 @@
     let autoCenterReleaseTimer = null;
     let autoCenterBound = false;
     let suppressAutoCenter = false;
+    let searchCircleLockedCenter = null;
 
     function initMap() {
       map = new maplibregl.Map({
@@ -1452,6 +1474,7 @@
         : searchCenter;
 
       drawSearchOverlay(searchCenter.lat, searchCenter.lng, false);
+      searchCircleLockedCenter = { lat: searchCenter.lat, lng: searchCenter.lng };
 
       zoomSearchCircleToWindowWidth(cameraCenter, function () {
         searchNearby(searchCenter.lat, searchCenter.lng, selectedSectionName, false);
@@ -1520,7 +1543,7 @@
       const meta = getSectionMeta(selectedSectionName);
       chip.style.setProperty('--section-color', meta.color);
       chip.style.setProperty('--section-soft', meta.softColor);
-      chip.innerHTML = renderSectionIcon(meta.icon, 'section-svg') + '<span>「' + escapeHtml(selectedSectionName) + '」的資源地點</span>';
+      chip.innerHTML = renderSectionIcon(meta.icon, 'section-svg') + '<span>' + escapeHtml(selectedSectionName) + '</span>';
       chip.classList.add('visible');
     }
 
@@ -1821,6 +1844,11 @@
         return;
       }
 
+      if (searchCircleLockedCenter) {
+        searchNearby(searchCircleLockedCenter.lat, searchCircleLockedCenter.lng, selectedSectionName, false);
+        return;
+      }
+
       window.clearTimeout(autoCenterTimer);
       autoCenterTimer = window.setTimeout(function () {
         searchFromMapCenter('目前地圖中心');
@@ -2016,7 +2044,9 @@
       credit.classList.toggle('hidden', mode === 'expanded');
 
       if (mode !== 'expanded' && !suppressAutoCenter) {
-        scheduleAutoCenterSearch();
+        withAutoCenterSuppressed(function () {
+          scheduleAutoCenterSearch();
+        }, 2000);
       }
     }
 
